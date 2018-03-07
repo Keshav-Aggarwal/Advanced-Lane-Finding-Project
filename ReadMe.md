@@ -1,5 +1,36 @@
+## Writeup Template
+
+### You can use this file as a template for your writeup if you want to submit it as a markdown file, but feel free to use some other method and submit a pdf if you prefer.
+
+---
+
+**Advanced Lane Finding Project**
+
+The goals / steps of this project are the following:
+
+* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
+* Apply a distortion correction to raw images.
+* Use color transforms, gradients, etc., to create a thresholded binary image.
+* Apply a perspective transform to rectify binary image ("birds-eye view").
+* Detect lane pixels and fit to find the lane boundary.
+* Determine the curvature of the lane and vehicle position with respect to center.
+* Warp the detected lane boundaries back onto the original image.
+* Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
+
+## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
+
+### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
+
+---
+
+### Writeup / README
+
+#### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  [Here](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) is a template writeup for this project you can use as a guide and a starting point.  
+
+You're reading it!
 
 
+#### Import Libraries
 ```python
 import os
 import cv2
@@ -9,7 +40,7 @@ import seaborn as sns
 %matplotlib inline
 ```
 
-
+#### Read Chessboard images for Camera calibration
 ```python
 #READ IMAGES FOR CAMERA CALIBRATION
 camera_calibration_folder = 'camera_cal'
@@ -23,7 +54,7 @@ for f in files:
         cal_cam_img.append(cv2.imread(fpath))
 ```
 
-
+#### See all the Images
 ```python
 def show_allImg(images, col=4):
     rows = len(images)//col
@@ -39,7 +70,7 @@ show_allImg(cal_cam_img, col=5)
 ![png](Images/output_2_0.png)
 
 
-
+#### Defined Global Variables
 ```python
 #DEFINE GLOBAL VALUES
 NX = 9
@@ -51,7 +82,7 @@ Y_size = cal_cam_img[0].shape[0]
 
 
 ```python
-#UTILITY FUNCTION
+#UTILITY FUNCTION To convert Images into different color spaces.
 def bgr2rgb(img):
     return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 def rgb2gray(img):
@@ -65,7 +96,7 @@ def bgr2gray(img):
 
 #### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
 
-I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
+I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objP` is just a replicated array of coordinates, and `objPoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgPoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
 
 
 ```python
@@ -113,24 +144,23 @@ for img in cal_cam_img:
     if(ret):
         imgPoints.append(corners)
         objPoints.append(objP)
-#         img = cv2.drawChessboaxdrrdCorners(img, (NX, NY), corners, ret)
 
 ```
 
 
-I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function. 
+I then used the output `objpoints` and `imgpoints` to compute the camera calibration matrix and distortion coefficients using the `cv2.calibrateCamera()` function. 
 
 
 ```python
 #CALIBRATE THE CAMERA AND CALCULATE THE MATRIX AND DISTORTION COEFFICIENT OF THE CAMERA
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objPoints, imgPoints, (X_size, Y_size), None, None)
 
-#UNDISTOR IMAGE FUNCTION
+#UNDISTORT IMAGE FUNCTION
 def undist(img):
     return cv2.undistort(img, mtx, dist, None, mtx)
 ```
 
-I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result:
+I applied this distortion correction to the test image using the `undist()` function defined in the above cell and obtained this result:
 
 
 ```python
@@ -292,7 +322,7 @@ dst = np.array([[200 ,720], [200  ,0], [980 ,0], [980 ,720]], np.float32)
 
 This resulted in the following source and destination points:
 
-| Source        | Destination   | 
+| Source points       | Destination Points   | 
 |:-------------:|:-------------:| 
 | 150, 720      | 200, 720        | 
 | 590, 450      | 200, 0      |
@@ -361,7 +391,7 @@ for img in test_images_undist:
 
 
 #### Applying the color channels on the Warped Lane lines
-As we can see from the brlow results that Sobel is doing a pretty good job in detecting most of the lines followd by Saturation but saturation is having noise in many of the frames as seen below we can do AND for saturation and B channel from RGB as this removes major part of the lanes. We are also calculating AND of sobel direction and Sobel Magnitude. 
+As we can see from the below results that Sobel is doing a pretty good job in detecting most of the lines followd by Saturation but saturation is having noise in many of the frames as seen below. We can do AND for saturation and B channel from RGB as this removes major part of the noise and detects lanes. We are also calculating AND of sobel direction and Sobel Magnitude. 
 
 
 ```python
@@ -372,7 +402,7 @@ calibrationMapAll(test_images_warped, cv2.COLOR_RGB2HLS, 2, kernel_size = 31, th
 ![png](Images/output_23_0.png)
 
 
-So in the final combined image we are using X_sobel OR (Sobel_Magnitude & Sobel_Gradient) OR (R & S). We are also dilating the Saturation Channel and Sobel X for getting more part of lane for more confident score. Also we are applying erosion on the combined image as this will remove the small noise near the lanes. The final code for taking a warped lane image and returning the output is below.
+So in the final combined image we are using X_sobel OR (Sobel_Magnitude & Sobel_Gradient) OR (R & S). We are also dilating the Saturation Channel and Sobel X for getting more part of lane for more confident score. Also we are applying erosion on the combined image as this will remove the small noise near the lanes. The final code for taking a warped lane image and returning the output is in below cell.
 
 
 ```python
@@ -419,7 +449,7 @@ plt.title('Binary Image of warp Image')
 
 ## 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
-I used a 2nd order polynomial using the binary images with detected Lanes and minimum pixels 50. Also this function will return the visual result of applying sliding window on binary detected lanes. Code for the same is in below cells.
+I used a 2nd order polynomial on the binary images to detected Lanes and the minimum pixels count for detecting an image is 50. Also this function will return the visual result of applying sliding window on binary detected lanes. Code for the same is in below cells.
 
 
 ```python
@@ -566,8 +596,8 @@ def getAvgRadius(ploty, left_fitx, right_fitx):
     return avg_curve, float(position)
 ```
 
-##### Draw the lane and radius, position text ont the image
-Function to generate Polyfill from binary image, unwarp it and then plot it on the Original image along with Radius and Offset from center.
+##### Draw the lane and radius, position text on the image.
+Function to generate Polyfill from binary image, unwarp it and then plot it on the Original image along with Radius and Offset from center. Then in next cell we will pass the image and will get the resultant Image.
 
 
 ```python
@@ -650,7 +680,7 @@ axis[1].plot(r_fit_s, ploty,'y')
 
 ### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-I implemented this in returnHighlightedLane function and the result is in below cells.
+I implemented this in `returnHighlightedLane()` function (cell above) and the result is in below cells.
 
 
 ```python
